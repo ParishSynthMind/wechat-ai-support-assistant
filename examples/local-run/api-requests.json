@@ -1,0 +1,116 @@
+[
+  {
+    "path": "/cgi-bin/stable_token",
+    "force": false
+  },
+  {
+    "path": "/cgi-bin/message/custom/typing",
+    "token_ok": true,
+    "body": {
+      "touser": "sam",
+      "command": "Typing"
+    }
+  },
+  {
+    "path": "/cgi-bin/message/custom/send",
+    "token_ok": true,
+    "body": {
+      "touser": "sam",
+      "msgtype": "text",
+      "text": {
+        "content": "Sorry, I can't help with that request. I can only answer questions about our products and services based on our information, such as the caffeine content of our teas."
+      }
+    }
+  },
+  {
+    "path": "/cgi-bin/message/custom/typing",
+    "token_ok": true,
+    "body": {
+      "touser": "lin",
+      "command": "Typing"
+    }
+  },
+  {
+    "path": "/cgi-bin/message/custom/send",
+    "token_ok": true,
+    "body": {
+      "touser": "lin",
+      "msgtype": "text",
+      "text": {
+        "content": "很抱歉让您久等了。按照我们的规定,物流5个工作日内没有更新时,同事会帮您联系快递公司核实。请稍等,同事会尽快回复您。"
+      }
+    }
+  },
+  {
+    "path": "/cgi-bin/message/custom/send",
+    "token_ok": true,
+    "body": {
+      "touser": "wei",
+      "msgtype": "text",
+      "text": {
+        "content": "您好，我是客服小林。订单 LT20261106-118 今天下午已打包，稍后发货，快递单号会发到微信。"
+      }
+    }
+  },
+  {
+    "path": "/cgi-bin/message/custom/send",
+    "token_ok": false,
+    "body": {
+      "touser": "amy",
+      "msgtype": "text",
+      "text": {
+        "content": "Hi Amy, your parcel left Shanghai this morning."
+      }
+    }
+  },
+  {
+    "path": "/cgi-bin/stable_token",
+    "force": true
+  },
+  {
+    "path": "/cgi-bin/message/custom/send",
+    "token_ok": true,
+    "body": {
+      "touser": "amy",
+      "msgtype": "text",
+      "text": {
+        "content": "Hi Amy, your parcel left Shanghai this morning."
+      }
+    }
+  },
+  {
+    "path": "/cgi-bin/message/custom/send",
+    "token_ok": true,
+    "body": {
+      "touser": "amy",
+      "msgtype": "text",
+      "text": {
+        "content": "And the tracking number is SF1234567890."
+      }
+    },
+    "injected": -1
+  },
+  {
+    "path": "/cgi-bin/message/custom/send",
+    "token_ok": true,
+    "body": {
+      "touser": "amy",
+      "msgtype": "text",
+      "text": {
+        "content": "And the tracking number is SF1234567890."
+      }
+    },
+    "injected": -1
+  },
+  {
+    "path": "/cgi-bin/message/custom/send",
+    "token_ok": true,
+    "body": {
+      "touser": "amy",
+      "msgtype": "text",
+      "text": {
+        "content": "And the tracking number is SF1234567890."
+      }
+    }
+  }
+]

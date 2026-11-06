@@ -1,0 +1,31 @@
+# Settings for one WeChat Official Account. Secrets are NOT here: they come from the
+# environment or the macOS Keychain (see .env.example). WECHAT_APPID can also be set in the env.
+brand: Lumen Tea House
+database: data/assistant.db
+knowledge_base: knowledge_base
+default_lang: en
+
+ai:
+  provider: anthropic                 # anthropic | gemini
+  model: claude-sonnet-5-5
+  gemini_model: gemini-3.5-flash-lite
+  max_sections: 4
+  max_tokens: 700
+  per_user_daily: 20                  # model calls per follower per day
+  daily: 500                          # model calls per day for the whole account
+
+wechat:
+  appid: ""                           # or env WECHAT_APPID
+  api_base: https://api.weixin.qq.com
+  token_mode: stable                  # stable (POST /cgi-bin/stable_token) | classic (GET /cgi-bin/token)
+  passive_budget_seconds: 4.0         # WeChat gives up after 5 s
+  cs_window_hours: 48
+  cs_per_window: 5
+  timestamp_max_age: 300
+  require_encryption: false           # true once the account is switched to safe mode
+  typing_indicator: false             # "typing..." while a slow answer is on its way
+
+handover:
+  mode: notify                        # notify (bot goes quiet, team is told) | transfer_customer_service
+  webhook_url: ""                     # optional: JSON notice for the team (n8n, Slack relay, CRM)
+  on_not_found: false

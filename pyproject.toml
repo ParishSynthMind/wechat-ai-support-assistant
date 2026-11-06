@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wechat-ai-support-assistant"
+version = "0.1.0"
+description = "AI customer support for a WeChat Official Account: signed and encrypted callbacks, answers from a Chinese and English knowledge base with Claude or Gemini, the 5-second passive reply rule, customer-service messages, access_token caching, handover to a person."
+requires-python = ">=3.10"
+license = {text = "MIT"}
+dependencies = [
+  "fastapi>=0.110",
+  "uvicorn>=0.29",
+  "httpx>=0.27",
+  "anthropic>=2.0",
+  "cryptography>=42",
+  "defusedxml>=0.7",
+  "PyYAML>=6.0",
+]
+
+[project.scripts]
+wechat-assistant = "wechat_support.cli:main"
+
+[tool.setuptools]
+packages = ["wechat_support"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501", "E731"]

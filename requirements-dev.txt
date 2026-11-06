@@ -1,0 +1,5 @@
+pytest
+pytest-asyncio>=0.23
+pytest-timeout
+ruff>=0.6
+wechatpy==1.8.18  # independent implementation, used only to cross-check our encryption
