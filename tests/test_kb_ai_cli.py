@@ -199,3 +199,15 @@ def test_cli_new_aes_key(capsys):
 def test_scripted_answer_shape():
     a = Answer("answered", "x", [1])
     assert a.tokens_in == 0 and a.model == ""
+
+
+def test_config_ai_disclosure_from_yaml(tmp_path):
+    p = tmp_path / "a.yaml"
+    p.write_text("brand: Demo Shop\nai_disclosure:\n  en: ''\n", encoding="utf-8")
+    s = config_mod.load(p, env={})
+    assert s.disclosure("en") == "I'm an AI assistant for Demo Shop."     # blank without a reference: default
+    assert s.disclosure("zh") == "我是Demo Shop的AI助手。"
+    p.write_text("brand: Demo Shop\nai_disclosure:\n  en: ''\n  zh: ''\n"
+                 "ai_disclosure_removed_by_written_request: '2026-11-17 email from the owner'\n", encoding="utf-8")
+    s = config_mod.load(p, env={})
+    assert s.disclosure("en") == "" and s.disclosure("zh") == ""

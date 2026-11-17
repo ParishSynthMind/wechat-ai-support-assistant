@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS cs_queue (
   attempts INTEGER NOT NULL DEFAULT 0, next_at REAL NOT NULL, last_error TEXT,
   state TEXT NOT NULL DEFAULT 'pending'  -- pending | sent | dead
 );
+CREATE TABLE IF NOT EXISTS disclosed (openid TEXT PRIMARY KEY, at REAL NOT NULL);  -- AI disclosure shown
 CREATE TABLE IF NOT EXISTS daily (day TEXT PRIMARY KEY, ai_calls INTEGER NOT NULL DEFAULT 0);
 """
 
@@ -137,6 +138,16 @@ class Store:
     def user(self, openid: str) -> Optional[sqlite3.Row]:
         with self._conn() as c:
             return c.execute("SELECT * FROM users WHERE openid=?", (openid,)).fetchone()
+
+    def take_disclosure(self, openid: str) -> bool:
+        """True exactly once per follower (across workers): the first message to them must say it is an AI."""
+        with self.tx() as c:
+            return c.execute("INSERT OR IGNORE INTO disclosed VALUES (?,?)", (openid, time.time())).rowcount == 1
+
+    def forget_disclosure(self, openid: str) -> None:
+        """The message that carried the disclosure never arrived: show it again next time."""
+        with self.tx() as c:
+            c.execute("DELETE FROM disclosed WHERE openid=?", (openid,))
 
     def set_handover(self, openid: str, on: bool) -> bool:
         with self.tx() as c:

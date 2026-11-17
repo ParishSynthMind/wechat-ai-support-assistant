@@ -42,6 +42,12 @@ flowchart LR
 6. **Send later.** Customer-service messages go through a small queue: claimed with a lease (so two workers never send the same one), sent with backoff on -1 "system busy" and 45011, never retried on 45015/45047/43004/40003, and picked up again if a worker dies mid-send.
 7. **Log.** Every message in and out, which way it went (passive or customer service), the model, tokens and the sources used are logged to SQLite. `history` and `report` show them; openids are masked in the console.
 
+## AI disclosure (EU AI Act Article 50)
+
+- The first message to each follower starts with "I'm an AI assistant for {brand}." (or "我是{brand}的AI助手。" in Chinese), whether it goes out as a passive reply or a customer-service message. It is not repeated after that, but every follow welcome (both languages) and every handover message (keyword, model asks for a person, daily cap, model error) carries it, so followers know an AI assistant is passing them to a person. Staff replies are not labelled. If the database is reset, followers see it again.
+- Settings in `config/assistant.yaml`: `ai_disclosure` (per language) and `ai_disclosure_removed_by_written_request`. Blanking the text only switches it off when the client's recorded written request (date and who asked) is in the second setting; otherwise the default is used.
+- It is plain text in front of the reply, so it costs nothing against the 5-second window. Tested offline with the fake WeChat. In `transfer_customer_service` mode the handover is WeChat's own transfer, which carries no text, so nothing is added there. The recorded run below was made before this was added, so its replies do not show the line.
+
 ## The recorded run
 
 `scripts/local_run.py` starts the service and the fake WeChat on two real HTTP ports on this machine and plays four followers. Answers come from **real Claude Sonnet 5.5**, and one question from **real Gemini 3.5 Flash-Lite** to show the provider switch. Output is in [`examples/local-run/`](examples/local-run/): `run.json` (every step and what each follower saw), `api-requests.json` (every call the service made to the WeChat API) and `service-events.json`.
@@ -131,7 +137,7 @@ The test account is free and needs no company. A **real** Official Account for a
 
 ```bash
 pip install -r requirements-dev.txt
-pytest          # 120 tests, no WeChat account or API key needed
+pytest          # 129 tests, no WeChat account or API key needed
 ruff check .
 ```
 
@@ -139,7 +145,7 @@ They cover: signatures and timestamps; AES safe mode round trips, padding, wrong
 
 ## Status
 
-- **Tested:** the whole flow over real HTTP with real Claude (and Gemini), against a fake WeChat built from WeChat's documentation, plus 121 automated tests.
+- **Tested:** the whole flow over real HTTP with real Claude (and Gemini), against a fake WeChat built from WeChat's documentation, plus 129 automated tests.
 - **Not yet tested live:** a real WeChat test account. Planned next: the free test account, a temporary tunnel, messages from a real phone. This section will say what WeChat actually did.
 - **Not built:** WeCom / WeChat Customer Service (微信客服), menus, template messages, images and voice replies, a web dashboard.
 

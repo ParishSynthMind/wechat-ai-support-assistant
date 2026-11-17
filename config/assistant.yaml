@@ -5,6 +5,13 @@ database: data/assistant.db
 knowledge_base: knowledge_base
 default_lang: en
 
+# AI disclosure (EU AI Act Art. 50): starts the first message to each follower, every welcome and
+# every handover. Blank text only switches it off when the client's written request is recorded.
+ai_disclosure:
+  en: "I'm an AI assistant for {brand}."
+  zh: "我是{brand}的AI助手。"
+ai_disclosure_removed_by_written_request: ""   # e.g. "2026-11-17 email from the owner, ref 42"
+
 ai:
   provider: anthropic                 # anthropic | gemini
   model: claude-sonnet-5-5

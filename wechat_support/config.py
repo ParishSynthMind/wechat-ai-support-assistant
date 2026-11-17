@@ -99,6 +99,9 @@ class HandoverSettings:
     on_not_found: bool = False            # also hand over when the knowledge base has no answer
 
 
+DEFAULT_AI_DISCLOSURE = {"en": "I'm an AI assistant for {brand}.", "zh": "我是{brand}的AI助手。"}
+
+
 @dataclass
 class Settings:
     brand: str = "Lumen Tea House"
@@ -123,6 +126,19 @@ class Settings:
     error: Dict[str, str] = field(default_factory=lambda: {
         "en": "Sorry, something went wrong on our side. A colleague will reply to you.",
         "zh": "抱歉，系统出了点问题，同事会尽快回复您。"})
+    # AI disclosure (EU AI Act Art. 50): on the first message to each follower and on every handover.
+    # Blank text only switches it off when the client's written request is recorded below.
+    ai_disclosure: Dict[str, str] = field(default_factory=lambda: dict(DEFAULT_AI_DISCLOSURE))
+    ai_disclosure_removed_by_written_request: str = ""   # e.g. "2026-11-17 email from the owner, ref 42"
+
+    def disclosure(self, lang: str) -> str:
+        """The disclosure line for this language, or "" only if removal is backed by a recorded written request."""
+        text = str((self.ai_disclosure or {}).get(lang) or "").strip()
+        if not text:
+            if str(self.ai_disclosure_removed_by_written_request or "").strip():
+                return ""
+            text = DEFAULT_AI_DISCLOSURE.get(lang, DEFAULT_AI_DISCLOSURE["en"])
+        return text.replace("{brand}", self.brand)
 
 
 def _merge(obj, data: dict):

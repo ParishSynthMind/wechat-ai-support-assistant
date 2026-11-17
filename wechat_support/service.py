@@ -17,7 +17,10 @@ tries again, three times in all. So:
 
 The state of each message lives in SQLite with compare-and-set updates, so this holds across
 several worker processes: exactly one of "passive reply" or "customer-service message"
-happens, never both and never neither (a sweep picks up anything left in between)."""
+happens, never both and never neither (a sweep picks up anything left in between).
+
+AI disclosure (EU AI Act Art. 50): the first message to each follower, the welcome on every
+follow, and every handover message start with "I'm an AI assistant for <brand>" (cfg.disclosure)."""
 import asyncio
 import logging
 import re
@@ -142,11 +145,12 @@ class SupportService:
             if self.cfg.handover.mode == "transfer_customer_service":
                 self.store.set_message(key, "passive", delivered_by="transfer")
                 return transfer_reply(msg, int(self.clock()))
-            text = self.cfg.holding[lang]
+            text = self._disclose(msg.from_user, self.cfg.holding[lang], lang, handover=True)
             return self._passive_now(msg, key, text, lang, "handover")
 
         if not msg.text:
-            return self._passive_now(msg, key, self.cfg.unsupported[lang], lang, "unsupported")
+            return self._passive_now(msg, key, self._disclose(msg.from_user, self.cfg.unsupported[lang], lang),
+                                     lang, "unsupported")
 
         self.tasks[key] = asyncio.create_task(self._answer(msg, key, lang))
         return await self._wait_for_answer(msg, key, self.cfg.wechat.passive_budget_seconds)
@@ -157,8 +161,10 @@ class SupportService:
         if ev == "subscribe":
             # A follow event says nothing about the follower's language, so the welcome has both.
             self.store.set_subscribed(msg.from_user, True)
-            return self._passive_now(msg, key, self.cfg.welcome["zh"] + "\n\n" + self.cfg.welcome["en"], "zh+en",
-                                     "welcome")
+            self.store.take_disclosure(msg.from_user)   # a (re)follow is a new conversation: always disclose
+            text = self._with_disclosure(self.cfg.welcome["zh"], "zh") + "\n\n" + \
+                self._with_disclosure(self.cfg.welcome["en"], "en")
+            return self._passive_now(msg, key, text, "zh+en", "welcome")
         if ev == "unsubscribe":
             self.store.set_subscribed(msg.from_user, False)
             self.store.set_message(key, "ignored", delivered_by="none")
@@ -241,6 +247,8 @@ class SupportService:
             log.exception("answer failed for %s", mask(msg.from_user))
             text, status, detail = self.cfg.error[lang], "error", {"error": f"{type(e).__name__}: {e}"[:300]}
             await self._start_handover(msg, "error", lang, announce=False)
+        user = self.store.user(msg.from_user)
+        text = self._disclose(msg.from_user, text, lang, handover=bool(user and user["handover"]))
         detail["seconds"] = round(time.monotonic() - started, 2)
         self._event("answered", msg, status=status, text=text, lang=lang, **detail)
         self.store.log(msg.from_user, "note", status, lang=lang, status=status, detail=detail)
@@ -269,6 +277,24 @@ class SupportService:
         if status == "needs_human" or (status == "not_in_knowledge_base" and self.cfg.handover.on_not_found):
             await self._start_handover(msg, status, lang, announce=False)
         return text, status, detail
+
+    def _with_disclosure(self, text: str, lang: str) -> str:
+        line = self.cfg.disclosure(lang)
+        if not line:
+            return text
+        return f"{line}{'' if lang == 'zh' else ' '}{text}"
+
+    def _disclose(self, openid: str, text: str, lang: str, handover: bool = False) -> str:
+        """Prefix the AI disclosure on the first message to this follower and on every handover.
+        Plain text in front of the reply, so it costs nothing against the 5-second passive window."""
+        if not self.cfg.disclosure(lang):
+            return text
+        if self.store.take_disclosure(openid) or handover:
+            return self._with_disclosure(text, lang)
+        return text
+
+    def _carries_disclosure(self, text: str) -> bool:
+        return any(d and d in text for d in (self.cfg.disclosure("en"), self.cfg.disclosure("zh")))
 
     async def _start_handover(self, msg: Incoming, reason: str, lang: str, announce: bool = True) -> None:
         self.store.set_handover(msg.from_user, True)
@@ -300,6 +326,8 @@ class SupportService:
         if why:
             self.store.cs_result(row["id"], "dead", error=why)
             self.store.set_message(key, "failed", delivered_by="none")
+            if self._carries_disclosure(text):
+                self.store.forget_disclosure(openid)
             self.store.log(openid, "note", f"not sent: {why}", channel="customer_service", status="undeliverable")
             self._event("cs_not_sent", None, openid=openid, reason=why)
             return why
@@ -311,6 +339,8 @@ class SupportService:
             if e.errcode in PERMANENT_CS_ERRORS or row["attempts"] + 1 >= MAX_CS_ATTEMPTS:
                 self.store.cs_result(row["id"], "dead", error=str(e))
                 self.store.set_message(key, "failed", delivered_by="none")
+                if self._carries_disclosure(text):
+                    self.store.forget_disclosure(openid)
                 self.store.log(openid, "note", f"not sent: {e.explain}", channel="customer_service",
                                status=f"error {e.errcode}")
                 self._event("cs_failed", None, openid=openid, errcode=e.errcode, reason=e.explain)

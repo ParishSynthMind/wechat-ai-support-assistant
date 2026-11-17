@@ -153,7 +153,7 @@ async def test_model_says_needs_human(rig):
     rig.provider.replies = [Answer("needs_human", "A colleague will look at your order.", [], 100, 20)]
     oid = "oUser000000000000000000014"
     d = await rig.push.say(oid, "I was charged twice for order 5521")
-    assert d.reply_text == "A colleague will look at your order."
+    assert d.reply_text == "I'm an AI assistant for Lumen Tea House. A colleague will look at your order."
     assert rig.store.user(oid)["handover"] == 1
 
 
@@ -410,3 +410,89 @@ async def test_abandoned_attempt_cannot_swallow_the_answer(rig):
     assert "<Content>" in a and "<Content>" in b
     assert parse_xml(a.encode())["Content"] == parse_xml(b.encode())["Content"]
     assert len(rig.provider.calls) == 1
+
+
+# ---------------------------------------------------------------- AI disclosure (EU AI Act Art. 50)
+AI_EN = "I'm an AI assistant for Lumen Tea House."
+AI_ZH = "我是Lumen Tea House的AI助手。"
+
+
+async def test_disclosure_on_first_answer_not_repeated(rig):
+    oid = "oUser000000000000000000101"
+    first = await rig.push.say(oid, "How long does delivery to the UK take?")
+    second = await rig.push.say(oid, "Do you offer gift wrapping?")
+    assert first.reply_text.startswith(AI_EN + " ")
+    assert AI_EN not in second.reply_text
+    other = await rig.push.say("oUser000000000000000000102", "退货政策是什么？")
+    assert other.reply_text.startswith(AI_ZH)        # a new follower, in their own language
+
+
+async def test_disclosure_on_customer_service_message_path(rig):
+    rig.provider.delay = 0.8          # too slow for a passive reply
+    oid = "oUser000000000000000000103"
+    d = await rig.push.say(oid, "Do you offer gift wrapping?")
+    await drain(rig.svc)
+    sent = account_messages(rig.api, oid)
+    assert d.outcome == "no_reply" and sent[0]["via"] == "customer_service" and sent[0]["text"].startswith(AI_EN)
+
+
+async def test_disclosure_on_welcome_unsupported_and_handover(rig):
+    welcome = await rig.push.say("oUser000000000000000000104", "", msg_type="event", event="subscribe")
+    assert welcome.reply_text.startswith(AI_ZH) and (AI_EN + " Thanks for following") in welcome.reply_text
+    photo = await rig.push.say("oUser000000000000000000105", "", msg_type="image")
+    assert photo.reply_text.startswith(AI_EN)
+    oid = "oUser000000000000000000106"
+    await rig.push.say(oid, "How long does delivery to the UK take?")
+    handover = await rig.push.say(oid, "Can I talk to a human please")   # not the first message: still disclosed
+    assert handover.reply_text.startswith(AI_EN) and "colleague" in handover.reply_text
+    rig.store.set_handover(oid, False)
+    back = await rig.push.say(oid, "Do you offer gift wrapping?")
+    assert AI_EN not in back.reply_text
+
+
+async def test_disclosure_on_model_handover_and_error(rig):
+    rig.provider.replies = [RuntimeError("model down")]
+    oid = "oUser000000000000000000107"
+    err = await rig.push.say(oid, "Delivery costs?")
+    assert err.reply_text.startswith(AI_EN) and "something went wrong" in err.reply_text
+    rig.store.set_handover(oid, False)
+    rig.provider.replies = [Answer("needs_human", "A colleague will look at your order.", [], 100, 20)]
+    d = await rig.push.say(oid, "I was charged twice")
+    assert d.reply_text.startswith(AI_EN)
+
+
+async def test_disclosure_again_after_store_reset(cfg, fake, clock, tmp_path):
+    oid = "oUser000000000000000000108"
+    for db in ("a.db", "b.db"):          # a wiped conversation store is a new conversation
+        cfg.database = str(tmp_path / db)
+        rig, http = await make_rig(cfg, fake, clock)
+        async with rig.app.router.lifespan_context(rig.app):
+            d = await rig.push.say(oid, "How long does delivery to the UK take?")
+        assert d.reply_text.startswith(AI_EN)
+        await http.aclose()
+
+
+async def test_staff_reply_is_not_labelled_ai(rig):
+    oid = "oUser000000000000000000109"
+    await rig.push.say(oid, "hello")
+    assert await rig.svc.staff_reply(oid, "Hi, this is Mei from the team") == "sent"
+    assert account_messages(rig.api, oid)[-1]["text"] == "Hi, this is Mei from the team"
+
+
+async def test_blank_disclosure_without_written_request_keeps_default(cfg, fake, clock):
+    cfg.ai_disclosure = {"en": "", "zh": "  "}
+    rig, http = await make_rig(cfg, fake, clock)
+    async with rig.app.router.lifespan_context(rig.app):
+        d = await rig.push.say("oUser000000000000000000110", "How long does delivery to the UK take?")
+    assert d.reply_text.startswith(AI_EN)
+    await http.aclose()
+
+
+async def test_disclosure_removed_only_with_recorded_written_request(cfg, fake, clock):
+    cfg.ai_disclosure = {"en": "", "zh": ""}
+    cfg.ai_disclosure_removed_by_written_request = "2026-11-17 email from the owner, ref 42"
+    rig, http = await make_rig(cfg, fake, clock)
+    async with rig.app.router.lifespan_context(rig.app):
+        d = await rig.push.say("oUser000000000000000000111", "How long does delivery to the UK take?")
+    assert "AI assistant" not in d.reply_text and "7 to 12 working days" in d.reply_text
+    await http.aclose()
